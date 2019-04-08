@@ -1,0 +1,169 @@
+---
+title: "Section: Exploring `lm` function in R"
+author: "PLSC 503"
+date: "2019-04-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Regression Concepts: Review
+
+Let us continue with a general recap of concepts from linear regression, first with two variables, then more. 
+
+Question for today: What is a linear regression? What do coefficients represent? Why is using statistical software convenient and in our case, what are we asking R to do?
+
+## Two variables
+
+The CEF:
+$$
+g(x) = \mathrm{E}[Y|X=x],\forall x\in\mathbb{R},f_X(x)>0.
+$$
+
+The BLP:
+$$
+g(x) = \alpha + \beta x.
+$$
+
+Minimizing the loss function
+$$
+\text{arg} \min \mathrm{E}[U^2] = \mathrm{E}[(Y - a + bX)^2],
+$$
+
+we get
+$$
+b = \frac{\mathrm{Cov}(X, Y)}{\mathrm{V}[X]} \\
+a = \mathrm{E}[Y] - b\mathrm{E}[X]
+$$
+
+## More than two variables
+
+Same thing for the multivariate BLP, just with more variables. If we have function $g(x_1, x_2, \ldots, x_k)$, we define a linear function that looks like:
+
+$$
+g(x_1, x_2, \ldots, x_k) = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \ldots +
+\beta_k X_k.
+$$
+
+## Function `lm`
+
+When we use the function `lm`, we are commanding R to make these transformations, i.e. into the form of a linear function.
+
+### Load data
+
+Let's look at newest American National Election Studies (ANES) pilot data. See this link for the codebook: [ANES 2018 Pilot Study link](https://electionstudies.org/project/2018-pilot-study/). The data we will be using is a reduced version of the original data (since there are many variables and certain exceptions with missing values, etc. See Rmd for details on how I cleaned this, although I explained in section as well). 
+
+```{r, include=FALSE}
+# Here, I delete 
+df_orig <- read.csv("./anes_pilot_2018.csv")
+
+# Pick out a few variables and create a smaller data frame
+df <- data.frame(
+  pid = df_orig$pid7x,
+  birthyr = df_orig$birthyr,
+  # Simple calculation for approximate age
+  age = 2018 - df_orig$birthyr,
+  male1 = df_orig$gender,
+  educ = df_orig$educ,
+  faminc = df_orig$faminc_new,
+  region = df_orig$region,
+  trump = df_orig$fttrump
+)
+
+# We will look at those who responded from 0 to 100.
+
+library(tidyverse)
+# df <- df %>% 
+#   filter(trump != -7) %>% 
+#   filter(trump != 997)
+
+df <- df %>% 
+  mutate(pid = na_if(pid, -7)) %>% 
+  mutate(trump = na_if(trump, -7)) %>% 
+  mutate(trump = na_if(trump, 997)) %>% 
+  mutate(faminc = na_if(faminc, 97)) 
+write_csv(df, "./df_anes_503.csv")
+
+```
+
+Load data
+
+```{r}
+df <- read.csv("./df_anes_503.csv")
+```
+
+Take a minute to look through the variables and read through the relevant entries in the codebook.
+
+### Simple plots
+
+```{r}
+plot(df$pid, df$trump)
+```
+
+What do we see?
+
+### Linear regression with `lm`
+
+First, let's look at the function `lm`. What does it do? We can first look up documentation with `?lm`. Then, let's jump in by trying the following specification:
+
+```{r}
+lm(trump ~ pid, data = df)
+```
+
+Question: What do these values represent? (Remember the opening discussion.)
+
+Next, let's find out more about these estimated values. `summary` will give us a synopsis:
+
+```{r}
+fit <- lm(trump ~ pid, data = df)
+summary(fit)
+```
+
+### Classical SEs
+
+We can see a shorter summary like this:
+
+```{r}
+summary(fit)$coef
+```
+
+What standard errors are these? (What assumptions underlie classical standard errors?)
+
+Before we move on to robust standard errors, let's save the coefficients in `coef` and the classical standard errors in `classical_ses`.
+
+```{r}
+# We can extract coefficients with `fit$coefficients`, `fit$coef`, `coef(fit)`
+(coefs <- fit$coef)
+
+(classical_ses <- summary(fit)$coef[, 2])
+```
+
+## Package `sandwich`
+
+To find robust standard errors, we first find the heteroskedasticity consistent (HC) variance-covariance matrix using the `vcovHC()` function from the `sandwich` package. Then, we can compute the standard errors.
+
+The default is `type = "HC3"`. Let's specify the type as HCO (i.e. `vcovHC(fit, type = "HC0")`) for now (hint: may appear on problem set).
+
+```{r}
+#install.packages("sandwich")
+library("sandwich")
+(robust_ses <- sqrt(diag(vcovHC(fit, type = "HC0"))))
+```
+
+```{r}
+coefs
+classical_ses
+robust_ses
+```
+
+## Other models
+
+Create your own models and let's discuss them. See board for layout of results in table form.
+
+```{r}
+(model_1 <- lm(trump ~ pid + age, data = df))
+(model_2 <- lm(trump ~ male1*age, data = df))
+```
+

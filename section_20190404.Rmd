@@ -114,10 +114,13 @@ lm(trump ~ pid, data = df)
 
 Question: What do these values represent? (Remember the opening discussion.)
 
-Next, let's find out more about these estimated values. `summary` will give us a synopsis:
+```{r}
+(fit <- lm(trump ~ pid, data = df))
+```
+
+We can find out more about these estimated values: `summary` will give us a synopsis:
 
 ```{r}
-fit <- lm(trump ~ pid, data = df)
 summary(fit)
 ```
 
@@ -147,16 +150,24 @@ To find robust standard errors, we first find the heteroskedasticity consistent 
 The default is `type = "HC3"`. Let's specify the type as HCO (i.e. `vcovHC(fit, type = "HC0")`) for now (hint: may appear on problem set).
 
 ```{r}
-#install.packages("sandwich")
 library("sandwich")
+
+# Compare standard and HC0 standard errors:
+sqrt(diag(vcovHC(fit, type = "const")))
+sqrt(diag(vcovHC(fit, type = "HC0")))
+
 (robust_ses <- sqrt(diag(vcovHC(fit, type = "HC0"))))
 ```
 
+So we get the following coefficients, classical SEs, and robust SEs:
+
 ```{r}
-coefs
+coef
 classical_ses
 robust_ses
 ```
+
+
 
 ## Other models
 
@@ -164,6 +175,13 @@ Create your own models and let's discuss them. See board for layout of results i
 
 ```{r}
 (model_1 <- lm(trump ~ pid + age, data = df))
-(model_2 <- lm(trump ~ male1*age, data = df))
+
+(model_2 <- lm(trump ~ pid*age, data = df))
+
+# See difference between model_3_compare and model_3:
+# (model_3_compare <- lm(trump ~ pid + (age^2), data = df))
+(model_3 <- lm(trump ~ pid + I(age^2), data = df))
+
+(model_4 <- lm(trump ~ male1*age, data = df))
 ```
 

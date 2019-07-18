@@ -1,0 +1,637 @@
+---
+title: "Confidence Intervals and Hypothesis Testing"
+author: "Foundations of Statistical Inference (PLSC 503)"
+#date: 
+header-includes: 
+- \usepackage{amsmath} 
+- \usepackage{marvosym}
+- \usepackage{amsfonts} 
+- \usepackage{amssymb} 
+- \usepackage{float} 
+- \usepackage{bbm}
+- \usepackage{float}
+- \usepackage{graphicx}
+- \newcommand{\indep}{\rotatebox[origin=c]{90}{$\models$}}
+- \usepackage{hyperref}
+- \usepackage{color}
+- \hypersetup{colorlinks,linkcolor=blue,urlcolor=blue,filecolor=blue, runcolor = blue, citecolor=black}
+- \usepackage{caption}
+- \captionsetup{justification = raggedright,singlelinecheck = false}
+- \usepackage{pgf}
+- \usepackage{tikz}
+- \usetikzlibrary{positioning}
+- \usepackage{multirow,array}
+- \usepackage{multicol}
+output: 
+  beamer_presentation:
+    incremental: false
+classoption: "handout"    
+---
+
+```{r setup, include=FALSE}
+suppressMessages({
+  library(tidyverse)
+  library(stringr)
+  library(lubridate)
+  library(estimatr)
+  library(ggthemes)
+  library(knitr)
+  library(kableExtra)
+  library(knitr)
+  library(scales)
+  library(randomizr)
+})
+
+opts_chunk$set(tidy.opts=list(width.cutoff = 80), tidy = FALSE)
+
+theme_kyle <- function () { 
+  theme_tufte(base_size = 18) %+replace%
+    theme(legend.position = "bottom",
+          #legend.title = element_blank(),
+          axis.title.y = element_blank(),
+          strip.background = element_blank(),
+          panel.grid = element_line(colour = "lightgrey", size = 0.15), 
+          panel.grid.major = element_line(colour = "lightgrey", size = 0.15),
+          panel.grid.minor = element_line(colour = "lightgrey", size = 0.15),
+          axis.ticks = element_line(colour = "lightgrey", size = 0.15))
+}
+```
+
+
+## Evaluating Estimators (Review)
+
+- $\hat{\theta}_n$ is an \textbf{unbiased} estimator for $\theta$ if $\mathbb{E}[\hat{\theta}_n] = \theta$. \pause
+
+    - i.e. $\text{bias}(\hat{\theta}_n)=\mathbb{E}[\hat{\theta}_n]-\theta$ \pause
+
+- $\hat{\theta}_n$ is a \textbf{consistent} estimator for $\theta$ if $\hat{\theta}_n\overset{P}{\to}\theta$ \pause 
+    - i.e. $\text{Pr}(|\hat{\theta}_n-\theta| > \epsilon) \to 0$ as $n\to \infty$ for every $\epsilon >0$. \pause 
+
+- \textbf{Mean Squared Error}: $\mathbb{E}[\hat{\theta}_n-\theta]^2= \text{Var}[\hat{\theta}_n] + \text{bias}^2(\hat{\theta}_n)$ \pause 
+
+\textbf{Example:} 
+
+- Suppose $X$ is some random variable from an unknown distribution with finite moments \pause
+
+- Let $Y = \sin(X)+\sqrt{X} + X^3$ \pause 
+
+\textbf{Question:} is the sample mean $\bar{Y}$ an unbiased and consistent estimator for $\mathbb{E}[Y]$? What's the MSE?
+
+## 
+
+Data generation process for toy example:
+
+```{r}
+set.seed(503)
+
+# Suppose X ~ Poisson(4)
+X <- rpois(n = 20000, lambda = 4)
+
+# Generate Y
+Y <- sin(X) + sqrt(X) + X^3
+
+# What's E[Y]? 
+mean(Y) 
+```
+
+
+## 
+
+```{r, echo=FALSE, results='asis', fig.width=5, fig.height=5, out.width='.7\\linewidth', fig.align='center'}
+hist(Y)
+```
+
+## Evaluating Estimators (Review)
+
+Let $Y_1, \dots, Y_n$ be i.i.d random draws from Y (with finite $\mathbb{E}[Y]$ and $\text{Var}[Y] > 0 )$ s.t. $\bar{Y}_n = \frac{Y_1 + \dots + Y_n}{n}$ ,  $\mathbb{E}[\bar{Y}_n] = \mu$, $\text{Var}[\bar{Y}_n] = \frac{\sigma^2}{n}$. \pause 
+\begin{itemize}
+\item $\text{bias}(\bar{Y}_n) = \mathbb{E}[\bar{Y}_n]-\mathbb{E}[Y] = 0$:  \pause 
+
+\vspace{-0.5cm}
+\[
+\begin{aligned}
+\mathbb{E}[\bar{Y}_n] = & \mathbb{E}\left[\frac{1}{n}(Y_1+Y_2+\dots+Y_n)\right] = \frac{1}{n} \mathbb{E}\left[Y_1+Y_2+ \dots + Y_n\right] \\ 
+= & \frac{1}{n} \left(\mathbb{E}[Y_1] + \mathbb{E}[Y_2] + \dots + \mathbb{E}[Y_n] \right) = \frac{1}{n}n\mathbb{E}[Y] = \mathbb{E}[Y]
+\end{aligned}
+\] \pause 
+
+\vspace{-0.5cm}
+
+\item $\bar{Y}_n \overset{p}{\to} \mathbb{E}[Y]$: \pause $\text{Pr}\{|\bar{Y}_n - \mu| \geq \epsilon \} \leq \frac{\sigma^2}{n\epsilon^2}$ by Chebyshev's inequality \pause 
+
+\vspace{-0.5cm}
+\[
+\begin{aligned}
+& \lim_{n \to \infty} \left( \text{Pr}\{|\bar{Y}_n - \mu| \geq \epsilon \} \leq \frac{\sigma^2}{n\epsilon^2} \right) = \text{Pr}\{|\bar{Y}_n - \mu| \geq \epsilon \} \leq 0 \\
+\end{aligned}
+\]\pause
+
+\item $\text{MSE}(\bar{Y}_n) = \text{Var}[\bar{Y}_n] = \sigma^2/n \to 0$ as $n\to\infty$
+
+\end{itemize}
+
+## Evaluating Estimators (Review)
+
+```{r, echo=FALSE, results='asis', fig.width = 6, fig.height = 5.5, out.width='.9\\linewidth', fig.align='left'}
+n <- seq(1, 2001, 1)
+zbar <- rep(NA, length(n))
+for(i in 1:length(n)){
+  zbar[i] <- mean(sample(Y, n[i]))
+}
+
+plot(n, zbar, pch = 16, col = alpha("grey", 0.4), ylab = expression(bar(Y)[n]),
+     xlab = expression(n), axes = FALSE, xlim = c(0, 2000), ylim = c(50, 170),
+     cex.lab = 1)
+axis(side = 1, at = c(seq(0, 2000, 100)))
+axis(side = 2, at = c(seq(50, 170, 10)))
+abline(h = mean(Y), col="red", lty = 1, lwd = 1.5)
+points(n, cumsum(zbar)/n, type = 'l', lwd = 1.5)
+legend("bottomright", 
+       c(expression("E[Y]"), expression(n^-1*sum(bar(Y)[n], j))), 
+       lty = c("solid", "solid"), col = c("red", "black"),
+       lwd = c(2.5, 2.5, 2.5), cex = 1) 
+```
+
+## Confidence Intervals
+
+- A $1-\alpha$ \textbf{confidence interval} for a parameter $\theta$ is an interval $C_n = (a,b)$ \pause where $a = a(X_1, \dots, X_n)$ and $b = b(X_1,\dots,X_n)$. \pause
+- $(a,b)$ traps $\theta$ with probability $1-\alpha$, \pause i.e. $\text{Pr}(\theta\in C_n) \geq 1-\alpha$ \pause
+- $C_n$ is a random variable, \pause $\theta$ is fixed! \pause
+
+\textbf{Example:} Professor P. Hacker has a novel theory that says shark attacks, on average, affect voting behavior\footnote{Assume the true Average Treatment Effect (ATE) $\tau = 0$} \pause 
+\vspace{-0.2cm}
+\begin{itemize}
+\item He runs 20 experiments on MTurk with 100 subjects each \pause 
+\item Each experiment uses simple random assignment  \pause 
+\item The treatment group views a short video about rising shark attacks and then fills out a survey about voting behavior  \pause 
+\item P. Hacker's estimator is the diff-in-means, $\hat{\tau}_1,\dots,\hat{\tau}_{20}$  \pause
+\item Each time, he constructs a valid 95\% confidence interval \pause 
+\end{itemize}
+\vspace{-0.2cm}
+\textbf{Question:} how many of P. Hacker's intervals will trap $\tau$? \pause
+
+
+## 
+
+```{r, echo=FALSE, fig.width = 4, fig.height = 5, fig.align='left'}
+set.seed(503)
+N <- 10000
+tau <- 0
+Y0 <- rnorm(n = N, mean = 10, sd = 1)
+Y1 <- Y0 + tau 
+
+# P. Hacker's 20 experiments
+a <- as.numeric()
+b <- as.numeric()
+P <- as.numeric()
+est <- as.numeric()
+for(i in 1:20){
+  S <- sample(1:1000, 100)
+  Z <- rbinom(n = 100, size = 1, prob = 0.5)
+  Y_Obs <- Y1[S]*Z + Y0[S]*(1-Z)
+  fit <- lm_robust(Y_Obs ~ Z)
+  est[i] <- coef(fit)[2]
+  P[i] <- fit$p.value[2]
+  a[i] <- confint(fit, level = 0.95)[2,1]
+  b[i] <- confint(fit, level = 0.95)[2,2]
+}
+
+hacker_df <- 
+  data.frame(est = est, a = a, b = b, P = P, n = 1:20, 
+             cover = ifelse(P > 0.05, "Yes", "No"))
+
+hacker_df %>% 
+  ggplot() +
+  geom_hline(yintercept = 0.5, colour = "lightgrey", size = 0.15) + 
+  geom_hline(yintercept = -0.5, colour = "lightgrey", size = 0.15) + 
+  geom_hline(yintercept = 0, col = "darkgrey", lty = "dashed") + 
+  geom_linerange(aes(x = n, ymin = a, ymax = b, col = cover),  lwd = 1.5) + 
+  scale_color_manual(values = c("red", "black")) + 
+  coord_flip()  + 
+  labs(x = "", y = "", 
+       title = "Professor P. Hacker's Confidence Intervals") +
+  theme_minimal() + 
+  theme(legend.position = "none",
+        panel.grid = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank(), 
+        aspect.ratio = 1/1.25) 
+```
+
+## Normal-based Confidence Interval
+
+If $Z\sim \mathcal{N}(0,1)$ then $\text{Pr}(-z_{\alpha/2} < Z < z_{\alpha/2}) = 1-\alpha$. \footnote{where $z_{\alpha/2}=\Phi^{-1}\left(1-(\alpha/2)\right)$}
+
+```{r, echo=FALSE, fig.height = 2.5, fig.width = 3, fig.align='center'}
+par(mar = c(2, 2, 1, 1))
+x <- seq(-4, 4, length = 200)
+y <- dnorm(x)
+plot(x, y, type = "l", lwd = 2, col = "blue", cex.axis = 0.7,
+     cex.lab = 0.7, cex.main = 0.7, axes = FALSE,
+     xlab = expression("Pr(-1.96 < Z < 1.96)" == 0.95), ylab = "",
+     main = expression("PDF of" ~Z ~ "shaded for" ~ alpha == 0.05))
+x <- seq(-2, 2, length = 200)
+y <- dnorm(x)
+polygon(c(-2, x, 2), c(0, y, 0), col = "gray")
+mtext(side = 1, expression("Pr(-1.96 < Z < 1.96)" == 0.95), cex = 0.7)
+```
+
+## Normal-based Confidence Interval
+
+\begin{itemize}
+\item Suppose $(\hat{\theta}_n-\theta)/\hat{\sigma}[\hat{\theta}_n]\overset{d}{\to} \mathcal{N}\left(0, 1\right)$ \pause 
+\item Let $C_n = \left(\hat{\theta}_n - z_{\alpha/2}\hat{\sigma}[\hat{\theta}_n], \hat{\theta}_n + z_{\alpha/2}\hat{\sigma}[\hat{\theta}_n]\right)$ \pause 
+\end{itemize}
+
+\pause \textbf{Question:} what is $\text{Pr}(\theta \in C_n)$ ? \pause
+
+\[
+\begin{aligned}
+\text{Pr}\left(\theta \in C_n\right) & = \text{Pr}\left(\hat{\theta}_n - z_{\alpha/2}\hat{\sigma}[\hat{\theta}_n] < \theta < \hat{\theta}_n + z_{\alpha/2}\hat{\sigma}[\hat{\theta}_n]\right) \\
+& =\text{Pr}\left(-z_{\alpha/2} < \frac{\hat{\theta}_n-\theta}{\hat{\sigma}[\hat{\theta}_n]} < z_{\alpha/2}\right) \\
+& \color{red} \to \text{Pr}\left(-z_{\alpha/2} < Z < z_{\alpha/2}\right) \\
+& = 1-\alpha
+\end{aligned}
+\] \pause 
+
+\color{red} Normal-based intervals only have approximate (large sample) coverage guarantees
+
+## Normal-based Confidence Interval
+
+\vspace{0.25cm}
+\textbf{Example}: \pause
+
+\vspace{-0.25cm}
+\begin{itemize}
+  \item Recall that $Y = \sin(X)+\sqrt{X} + X^3$. \pause
+  \item We showed $\bar{Y}_n$ was unbiased and consistent for $\mathbb{E}[Y]=\mu$. \pause
+  \item By the Central Limit Theorem:\pause
+    \begin{itemize}
+    \item $\bar{Y}_n\overset{A}{\to}\mathcal{N}(\mu,\hat{\sigma}[\bar{Y}_n]^2)$\pause , and $(\bar{Y}_n - \mu)/\hat{\sigma}[\bar{Y}_n] \overset{d}{\to} \mathcal{N}(0,1)$ 
+    \end{itemize} \pause 
+  \item Therefore, $\bar{Y}_n\pm z_{\alpha/2}\hat{\sigma}[\bar{Y}_n]$ is an approximate $1-\alpha$ CI \pause 
+\end{itemize}
+\vspace{-0.25cm}
+```{r}
+y <- sample(Y, 1000) # Take 1000 draws from Y
+y_bar <- mean(y) # Estimated mean
+se_hat <- sd(y)/sqrt(1000) # Estimated SE
+
+# Construct an approximate 89% CI:
+c(y_bar - qnorm(1-(0.11/2))*se_hat, 
+  y_bar + qnorm(1-(0.11/2))*se_hat) 
+```
+
+## Normal-based Confidence Interval
+
+```{r}
+get_ci <- function(alpha = 0.05, n = 1000, dist = Y){
+  y <- sample(dist, n)
+  y_bar <- mean(y)
+  se_hat <- sd(y)/sqrt(n) 
+  c(y_bar - qnorm(1-(alpha/2))*se_hat, 
+    y_bar + qnorm(1-(alpha/2))*se_hat)
+}
+
+# Make R = 1000 confidence intervals
+R <- 1000
+out <- replicate(R, get_ci(alpha = 0.11))
+
+# What proportion cover E[Y]? 
+sum(mean(Y) >= out[1, ] & mean(Y) <= out[2, ])/R
+```
+
+## Hypothesis Testing
+
+A \textbf{hypothesis test} can be seen as a probabilistic proof by contradiction. \pause
+\begin{enumerate}
+\item Start with some default theory -- the \textbf{null hypothesis} $H_0$ -- and assume it is true. \pause 
+\item Pick a test statistic $T$, which is a function of the \textbf{observed data}, e.g. sample mean. \pause
+\item Derive the sampling distribution of $T$ when $H_0$ is true. \pause
+\item Calculate the probability of seeing a test statistic as extreme as $T^*$, \textbf{assuming the null is true}. \pause
+\item If $P$ is small (i.e. $T^*$ sufficiently unusual) then reject $H_0$, else retain $H_0$. \pause
+\end{enumerate}
+
+## Hypothesis Testing
+
+\textbf{Example}: P. Hacker has conducted 20 experiments. Now he wants to get published, which he suspects is a "coin flip". \pause
+
+\begin{enumerate}
+\item Let $X_1,\dots, X_n \sim \text{Bernoulli}(\theta)$ be $n$ independent submissions. Choose $H_0: \theta=0.5$ and $H_1: \theta \neq 0.5$ \pause 
+\item Let $T = T(X_1,\dots,X_n)= \sum_{i=1}^n X_i$ \pause
+\item Under $H_0$, $T\sim\text{Binom}(n, \theta = 0.5)$ and $\mathbb{E}[T] = n0.5$ \pause
+\item Suppose $T^*=1$ for $n=20$, i.e. $ |1-n0.50| = 9$. 
+\[
+\begin{aligned}
+P & = \text{Pr}\left(|T-10|\geq   9 \ | \ \theta = 0.5\right) \\
+& = \text{Pr}(T \leq 1 \ | \ \theta = 0.5) + \text{Pr}(T \geq 19 \ | \ \theta = 0.5) \\
+& \approx 4\times10^{-5}
+\end{aligned}
+\] \pause 
+\vspace{-0.5cm}
+\item $P$ is approx. 1 in 25,000, e.g. reject $H_0$ for  $\alpha \gtrapprox 4\times10^{-5}$  
+\end{enumerate}
+
+```{r}
+sum(dbinom(0:1, size = 20, prob = 0.5)) + 
+  sum(dbinom(19:20, size = 20, prob = 0.5))
+```
+
+## Hypothesis Testing
+
+$P$ is \textbf{exact} if we know the null distribution. We usually don't... \pause 
+
+\textbf{The Wald Test} \pause
+
+\begin{itemize}
+\item $H_0: \theta = \theta_0$ v.s. $H_1: \theta \neq \theta_0$ where $(\hat{\theta}-\theta_0)/\hat{\sigma}[\hat{\theta}]\overset{d}{\to}\mathcal{N}(0,1)$ \pause 
+\item A size $\alpha$ Wald test: reject $H_0$ if  $|W| > z_{\alpha/2}$ \pause 
+\begin{itemize}
+\item for $W=(\hat{\theta}-\theta_0)/\hat{\sigma}[\hat{\theta}]$ \pause
+\end{itemize}
+\item The Wald Test is \textbf{asymptotically valid}: \pause
+
+\[
+\begin{aligned}
+\text{Pr}\left(|W| > z_{\alpha/2}\right) & = \text{Pr}\left( \frac{(\hat{\theta}-\theta_0)}{\hat{\sigma}[\hat{\theta}]} > z_{\alpha/2}\right) \\ 
+& \color{red} \to \text{Pr}(|Z|> z_{\alpha/2})  \\
+& = \alpha
+\end{aligned}
+\]\pause
+\end{itemize}
+
+\vspace{-0.5cm}
+
+\textbf{Question}: what is $\alpha$? \pause What is $z_{\alpha/2}$?
+
+## Hypothesis Testing
+
+\begin{figure}[H]
+\centering
+  \includegraphics[width=7cm,height=5cm,keepaspectratio]{fisher1946.jpg}
+\end{figure}
+\begin{quote}
+"The value for which P=.05, or 1 in 20, is 1.96 or nearly 2; it is convenient to take this point as a limit in judging whether a deviation is to be considered significant or not." \\
+-\textit{Statistical Methods for Research Workers}, 1925.
+\end{quote}
+
+## Hypothesis Testing
+
+\begin{table}[]
+\begin{tabular}{c|cc|}
+\cline{2-3}
+\multicolumn{1}{l|}{}             & \multicolumn{2}{c|}{Decision}                        \\
+                                  & Retain $H_0$                        & Reject $H_0$   \\ \hline
+\multicolumn{1}{|c|}{$H_0$ true}  & \multicolumn{1}{c|}{$\checkmark$}   & False Positive \\ \hline
+\multicolumn{1}{|c|}{$H_0$ false} & \multicolumn{1}{c|}{False Negative} & $\checkmark$   \\ \hline
+\end{tabular}
+\end{table}
+\pause
+
+\begin{itemize}
+\item \textbf{Significance level} of a test: $\text{Pr}(\text{reject}  \ \ H_0 \ | \  H_0 \ \ \text{true})$ \pause
+\begin{itemize}
+\item $\text{Pr}(\text{reject}  \ \ H_0 \ | \  H_0 \ \ \text{true}) = 0.05$ for a test with $\alpha = 0.05$. \pause
+\end{itemize}
+\item \textbf{Power} of a test: $\text{Pr}(\text{reject}  \ \ H_0 \ | \  H_0 \ \ \text{false})$. \pause
+\begin{itemize}
+\item Often written $1-\beta$ where $\beta = \text{Pr}(\text{retain}  \ \ H_0 \ | \  H_0 \ \ \text{false})$ \pause
+\end{itemize}
+\item \textbf{Minimum Detectable Effect}:  $\left(z_{\alpha/2} + z_{\beta}\right)\sigma[\hat{\theta}]$ \pause
+\begin{itemize}
+\item Large sample approximation for two-sided hypothesis testing \pause
+\item For $\alpha= 0.05$, $\beta = 0.20$, $\text{MDE} = (1.96 + 0.84)\sigma[\hat{\theta}] = 2.8\sigma[\hat{\theta}]$ \pause
+\item $\sigma[\hat{\theta}]\to 0$ as $n\to\infty$, so MDE $\to 0$ as $n\to\infty$
+\end{itemize}
+\end{itemize}
+
+
+## Hypothesis Testing
+
+
+\begin{enumerate}
+\item $H_0: \tau = 0$ v.s. $H_1:\tau \neq 0$ for $\tau = \mu_t-\mu_c$. \pause 
+\item Choose $\hat{\tau} = \bar{Y}_t - \bar{Y}_c$ with $\hat{\sigma}[\hat{\tau} ] = \sqrt{\frac{s_t^2}{n_t} + \frac{s_c^2}{n_c}}$ \pause 
+\item Under $H_0$, $ W = \frac{(\hat{\tau}-0)}{\hat{\sigma}[\hat{\tau}]} = \frac{\bar{Y}_t - \bar{Y}_c}{\sqrt{\frac{s_t^2}{n_t} + \frac{s_c^2}{n_c}}} \overset{d}{\to} \mathcal{N}(0,1)$ \pause 
+
+\item Suppose $W^* = \frac{0.49}{\sqrt{\frac{1.07}{50} + \frac{1.02}{50}}} \approx 2.40$ \pause
+
+\item  Is $P < 0.05$? \vspace{-0.5cm} \pause
+
+\[
+\begin{aligned}
+P & \approx \text{Pr}(|W| > 2.40 \ | \ \tau = 0) \\
+  & = \text{Pr}(W < -2.40 \ | \ \tau = 0) + \text{Pr}(W > 2.40 \ | \ \tau = 0)\\  
+  & \approx 0.02 
+\end{aligned}
+\]
+\end{enumerate}
+
+```{r}
+pnorm(-2.40) + 1-pnorm(2.40)
+```
+
+## Statistical Power 
+
+\textbf{Question:} Suppose the null is false, e.g. $\tau \neq \tau_0$, and fix $\alpha = 0.05$. \pause What is the \textbf{power} of a Wald test?
+\pause
+
+\small 
+\[
+\begin{aligned}
+\text{Pr}(\text{reject}  \ \ H_0 \ |\  \tau \neq \tau_0) & = \text{Pr}\left(W < -c \ \ |\  \tau \neq \tau_0 \right) +  \text{Pr}\left(W > c \ \ |\  \tau \neq \tau_0 \right) \\
+ & =  \text{Pr}\left(\frac{\hat{\tau}-\tau_0}{\hat{\sigma}[\hat{\tau}]} < -c \ \ |  \  \tau \neq \tau_0 \right) + \\  & \hspace{1.5cm} \text{Pr}\left(\frac{\hat{\tau}-\tau_0}{\hat{\sigma}[\hat{\tau}]} > c \ \ |  \  \tau \neq \tau_0\right) \\
+  & =  \text{Pr}\left(Z < -c  + \frac{\tau_0-\tau}{\hat{\sigma}[\hat{\tau}]} \right) + \text{Pr}\left(Z > c  + \frac{\tau_0-\tau}{\hat{\sigma}[\hat{\tau}]} \right) \\
+  & = \Phi\left(\frac{\tau_0-\tau}{\hat{\sigma}[\hat{\tau}]} -c \right) + 1 - \Phi\left(\frac{\tau_0-\tau}{\hat{\sigma}[\hat{\tau}]} + c \right) \\
+    & = \Phi\left(-z_{\alpha/2} + \frac{\tau_0-\tau}{\hat{\sigma}[\hat{\tau}]}  \right) + \Phi\left(-z_{\alpha/2} -\frac{\tau_0-\tau}{\hat{\sigma}[\hat{\tau}]} \right)
+\end{aligned}
+\]
+
+## Statistical Power 
+
+```{r}
+wald_power <- function(tau = NULL , tau_0 = 0, 
+                         n_t = NULL, n_c = NULL, 
+                         s2_t = NULL, s2_c = NULL, 
+                         a = 0.05){
+  z <- qnorm(1-(a/2))
+  se_hat <- sqrt(s2_t/n_t + s2_c/n_c)
+  pnorm(-z + (tau_0 - tau)/se_hat) + 
+    pnorm(-z - (tau_0 - tau)/se_hat)
+}
+
+# Assume tau = 0.49, s2_t = s2_c = 1 
+wald_power(tau = 0.49, n_t = 50, n_c = 50, 
+           s2_t = 1, s2_c = 1)
+```
+
+## 
+
+```{r, echo=FALSE, results='asis', fig.width=7, fig.height=6, out.width='.9\\linewidth', fig.align='center'}
+tau <- seq(-1, 1, length.out = 1000)
+power_100 <- wald_power(tau = tau, n_t = 50, n_c = 50, s2_t = 1, s2_c = 1)
+power_500 <- wald_power(tau = tau, n_t = 250, n_c = 250, s2_t = 1, s2_c = 1)
+power_1000 <- wald_power(tau = tau, n_t = 500, n_c = 500, s2_t = 1, s2_c = 1)
+N <- c(rep("100", 1000), rep("500", 1000), rep("1000", 1000))
+
+plot_df <- 
+  data.frame(tau = tau, power = c(power_100, power_500, power_1000),
+             N = factor(N, levels = c("100", "500", "1000")))
+
+ggplot(plot_df, aes(x = tau, y = power, col = N)) +
+  geom_hline(yintercept = 0.80, col = "red", linetype = "dashed", size = 0.5) +
+  geom_line() + 
+  scale_color_grey(start = 0.8, end = 0) + 
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2)) +
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.2)) + 
+  theme_tufte(base_size = 16) +
+  theme(panel.grid.major.x = element_line(colour = "lightgrey", size = 0.15),
+        panel.grid.major.y = element_line(colour = "lightgrey", size = 0.15),
+        axis.ticks = element_line(colour = "lightgrey", size = 0.15)) +
+  labs(x = expression(tau), y = "Power",
+       title = expression("Power function for" ~ tau != tau[0] ~ "fixing" ~ alpha == 0.05 ~ "and" ~ tau[0] == 0))  
+
+```
+
+
+## Minimum Detectable Effect
+
+Assume (without proof)\footnote{see Aronow, Green and Lee (2014), "Sharp Bounds on the Variance in Randomized Experiments," \textit{The Annals of Statistics}, for better bounds! }: $\text{Var}[\hat{\tau}] \leq \frac{1}{N}\left(\frac{s^2_t}{p} + \frac{s^2_c}{1-p}\right)$ \pause 
+
+Probability of treatment $p$, sample variance $s^2_k = \frac{1}{n_k-1}\sum(Y_{ki}-\bar{Y}_k)^2$
+
+What is the relationship between $N = n_t+n_c$ and $\text{MDE}$? \pause
+
+\[ 
+\begin{aligned}
+\text{MDE}  & = (z_{\alpha/2} + z_{\beta})\sigma[\hat{\tau}] \\
+& = (z_{\alpha/2} + z_{\beta})\sqrt{\frac{1}{N}\left(\frac{s^2_t}{p} + \frac{s^2_c}{1-p}\right)}
+\end{aligned}
+\]
+
+Or, re-arranging to get: $N = \frac{(z_{\alpha/2} + z_{\beta})^2\left(\frac{s^2_t}{p} + \frac{s^2_c}{1-p}\right)}{\text{MDE}^2}$
+
+\color{red} This is a reasonable approximation w/ large sample
+
+## Minimum Detectable Effect
+
+\textbf{Question:} What's the MDE when $N=100, \alpha = 0.05, \beta = 0.20$? 
+\pause 
+
+```{r}
+# Many moving parts:
+get_mde <- function(a = 0.05, b = 0.20, p = 0.5, 
+                    n = NULL, s2_t = NULL, 
+                    s2_c = NULL){
+  (qnorm(1-(a/2))+ qnorm(1-b))*
+    sqrt(n^-1*(s2_t/p + s2_c/(1-p)))
+}
+
+get_mde(n = 100, s2_t = 1, s2_c = 1)
+```
+
+## Minimum Detectable Effect
+
+\textbf{Question:} What sample size does he need for an MDE of 0.2 units? \pause
+
+```{r}
+get_n <- function(a = 0.05, b = 0.20, p = 0.5, 
+                  MDE = NULL, s2_t = NULL, 
+                  s2_c = NULL){
+  ((qnorm(1-(a/2))+ qnorm(1-b))^2*
+     (s2_t/p + s2_c/(1-p)))/MDE^2
+}
+
+get_n(MDE = 0.2, s2_t = 1, s2_c = 1)
+```
+
+## 
+
+
+```{r, echo=FALSE, results='asis', fig.width=8, fig.height=6.25, out.width='.9\\linewidth', fig.align='center', message=FALSE, warning=FALSE}
+MDE <- seq(0.1, 1, length.out = 1000)
+var_1 <- get_n(MDE = MDE, s2_t = 1, s2_c = 1)
+var_5 <- get_n(MDE = MDE, s2_t = 5, s2_c = 5)
+var_10 <- get_n(MDE = MDE, s2_t = 10, s2_c = 10)
+var <- c(rep("1", 1000), rep("5", 1000), rep("10", 1000))
+
+plot_df <- 
+  data.frame(MDE = MDE, n = c(var_1, var_5, var_10),
+             var = factor(var, levels = c("1", "5", "10")))
+
+ggplot(plot_df, aes(x = MDE, y = n, col = var)) +
+  #geom_hline(yintercept = 0.80, col = "red", linetype = "dashed", size = 0.5) +
+  geom_line() + 
+  scale_y_continuous(lim = c(0, 10000), breaks = seq(0, 10000, by = 500)) +
+  scale_color_grey(start = 0, end = 0.8, name = expression(S[t]^2 == S[c]^2)) + 
+  scale_x_continuous(breaks = seq(0.10, 1, by = 0.1)) + 
+  theme_tufte(base_size = 18) +
+  theme(panel.grid.major.x = element_line(colour = "lightgrey", size = 0.15),
+        panel.grid.major.y = element_line(colour = "lightgrey", size = 0.15),
+        axis.ticks = element_line(colour = "lightgrey", size = 0.15)) +
+  labs(x = "Minimum Detectable Effect", y = "Sample Size (N)",
+       title = expression("Sample size as function of MDE"),
+       subtitle = expression(alpha == 0.05 ~ "and" ~ beta == 0.20 ~ "and" ~ p == 0.5))
+```
+
+
+
+
+## Multiple Testing
+
+\textbf{Example}: Prof. Dr. P. Hacker has conducted 20 MTurk experiments to test his novel theory about shark attacks. \pause
+
+- P. Hacker observes one of his 20 $P$-values is 0.02, which corresponds to an estimated effect of $0.49$ units! \pause
+- He reports this result, arguing "If shark attacks \textbf{do not} affect voting behavior, the probability of observing a result as extreme as $0.49$ is 0.02; so they must!" \pause
+- P. Hacker, \textit{forthcoming}, "Shark Attacks Affect Voting Behavior: $P < 0.05$", \textit{American Political Science Review}\footnote{cf. J. Cohen, 1994, "The earth is round (p < .05)," \textit{American Psychologist}} \pause 
+
+\textbf{Question:} What is the probability of at least one $P < 0.05$? \pause 
+\vspace{-0.15cm}
+\[
+\begin{aligned}
+\text{Pr}(\text{at least one significant result}) & = 1-\text{Pr}(\text{no significant results}) \\ 
+& = 1-(1-0.05)^{20} \\
+& \approx 0.64
+\end{aligned}
+\]
+
+## Multiple Testing
+
+\textbf{Example:} Prof. Dr. P. Hacker downloads the latest version of the ANES survey, which contains a question about exposure to shark attacks ($z$), along with an outcome variable about voting ($y$). \pause 
+
+\begin{itemize}
+\item He opens Stata and types \texttt{reg y x, robust} \pause but $P > 0.05$ \Large{\Frowny{}} \normalsize \pause
+\item Suppose the ANES survey has $k=20$ other predictors \pause
+\end{itemize}
+
+\textbf{Question:} How many possible models can he fit with $k= 20$  predictors?  \pause
+
+\begin{itemize}
+\item Suppose $k = 3$. How many models can he fit?  \pause 
+\item \small $y \sim z$; \pause $y \sim z + x_1 + x_2 + x_3$; \pause $y \sim z + x_k$ (3x); \pause $y \sim z + x_k + x_j$ (3x) \pause
+\item \normalsize With $k=20$ he can fit $2^{20} > 10^6$ simple models
+\item This yields $10^6\cdot0.05 \approx 50000$ "significant" results \pause
+\end{itemize}
+
+## Multiple Testing
+
+\textbf{Potential remedies}: \pause
+
+\begin{enumerate}
+\item Bonferroni correction: \pause reject if 
+$P < \frac{\alpha}{m}$, i.e. $\frac{0.05}{20} = 0.0025$.
+\begin{itemize}
+\item Ensures probability of false rejection $\leq \alpha$ for any null \pause 
+\item Easy to implement: just multiply $P$ by $m$! \pause Very conservative. \pause
+\end{itemize}
+\item Control $\text{FDR} \leq \frac{m_0}{m}\alpha \leq \alpha$  (e.g. Benjamini-Hochberg) \pause 
+\begin{itemize}
+\item Order $P_{(1)} < \dots < P_{(m)}$ and find largest $P_k$ s.t. $P_k \leq \frac{k}{m}\alpha$. \pause 
+\item For  $P= (0.01, 0.04, 0.24, 0.58)$, $P_1 < \frac{1}{4}0.05=0.0125$, but $P_i > \frac{i}{4}0.05$ for $i \in \{2, 3, 4\}$  \pause
+\end{itemize}
+\item Pre-registration
+\end{enumerate}
+
+\pause See `p.adjust()` in `R`, and Alex Coppock's EGAP guide: \href{https://egap.org/methods-guides/10-things-you-need-know-about-multiple-comparisons}{10 Things to Know About Multiple Comparisons}

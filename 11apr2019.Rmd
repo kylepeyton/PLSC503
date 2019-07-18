@@ -1,0 +1,291 @@
+---
+title: "Regression and polynomial approximation to CEF"
+author: "Foundations of Statistical Inference (PLSC 503)"
+#date: 
+header-includes: 
+- \usepackage{amsmath} 
+- \usepackage{marvosym}
+- \usepackage{amsfonts} 
+- \usepackage{amssymb} 
+- \usepackage{float} 
+- \usepackage{bbm}
+- \usepackage{float}
+- \usepackage{graphicx}
+- \newcommand{\indep}{\rotatebox[origin=c]{90}{$\models$}}
+- \usepackage{hyperref}
+- \usepackage{color}
+- \hypersetup{colorlinks,linkcolor=blue,urlcolor=blue,filecolor=blue, runcolor = blue, citecolor=black}
+- \usepackage{caption}
+- \captionsetup{justification = raggedright,singlelinecheck = false}
+- \usepackage{pgf}
+- \usepackage{tikz}
+- \usetikzlibrary{positioning}
+- \usepackage{multirow,array}
+- \usepackage{multicol}
+output: 
+  beamer_presentation:
+    incremental: false
+classoption: "handout"    
+---
+
+```{r setup, include=FALSE}
+suppressMessages({
+  library(tidyverse)
+  library(stringr)
+  library(lubridate)
+  library(estimatr)
+  library(ggthemes)
+  library(knitr)
+  library(kableExtra)
+  library(knitr)
+  library(scales)
+  library(randomizr)
+})
+
+opts_chunk$set(tidy.opts=list(width.cutoff = 120), tidy = FALSE)
+```
+
+
+## 
+
+
+Suppose $X$ and $Y$ have some complicated relationship: $$Y = 5X + 2X^2 + 3X^3 + 4X^4 + 5X^5 + Z$$ 
+
+Let $X\sim \text{U}(-5,5)$, $Z \sim \mathcal{N}(0,1)$ and assume $X \indep Z$ \pause 
+
+\vspace{0.3cm}
+\textbf{Question}: What is $\mathbb{E}[Y|X = x]$? \pause 
+
+\vspace{-0.5cm}
+\[
+\begin{aligned}
+\mathbb{E}[Y|X = x] & = \mathbb{E}\left[5X + 2X^2 + 3X^3 + 4X^4 + 5X^5 + Z|X=x \right] \\ 
+                    & = 5x + 2x^2 + 3x^3 + 4x^4 + 5x^5 + \mathbb{E}[Z|X=x] \\
+                    & = 5x + 2x^2 + 3x^3 + 4x^4 + 5x^5 + \mathbb{E}[Z] \\
+                    & = 5x + 2x^2 + 3x^3 + 4x^4 + 5x^5
+\end{aligned}
+\] \pause 
+
+
+## 
+
+\textbf{Question:} What is $\mathbb{E}[Y|X = 2]$? \pause 
+
+\[
+\begin{aligned}
+\mathbb{E}[Y|X = 2] & = 5x + 2x^2 + 3x^3 + 4x^4 + 5x^5 \\
+                    & = 10 + 8 + 24 + 64 + 160 = 266
+\end{aligned}
+\] \pause
+
+```{r}
+# E[Y|X = 2]:
+cef <- function(x){
+  5*x + 2*x^2 + 3*x^3 + 4*x^4 + 5*x^5 
+}
+
+(theta1 <- cef(x = 2))
+```
+
+
+## 
+
+\textbf{Question:} What is $\mathbb{E}\left[\frac{\partial\mathbb{E}[Y|X=x]}{\partial x}\right]$? \pause 
+
+\[
+\begin{aligned}
+\mathbb{E}\left[\frac{\partial\mathbb{E}[Y|X=x]}{\partial X} \right] & = \mathbb{E}\left[5 + 4X + 9X^2 + 16X^3 + 25X^4\right] \\ 
+& = 5 + 4\mathbb{E}[X] + 9\mathbb{E}[X^2] + 16\mathbb{E}[X^3] + 25\mathbb{E}[X^4]
+\end{aligned}
+\] \pause
+
+\textbf{Fact}: the $n$-th moment for $X\sim\text{U}(a,b)$ is $$\mathbb{E}[X^n] = \frac{1}{n+1}\sum_{k=0}^na^kb^{n-k}$$
+
+e.g. $\mathbb{E}[X^2] = \frac{1}{3}\left(a^2+ab+b^2\right)$
+
+##
+
+We can also use the \texttt{integrate()} function in \texttt{R}: 
+
+```{r}
+# 1st-4th moments for X ~ U(-5,5)
+E_X <- integrate(function(x) x/10, -5, 5)$value
+E_X2 <- integrate(function(x) x^2/10, -5, 5)$value
+E_X3 <- integrate(function(x) x^3/10, -5, 5)$value
+E_X4 <- integrate(function(x) x^4/10, -5, 5)$value
+
+# Average Partial Derivative (APD):
+(theta2 <- 5 + 4*E_X + 9*E_X2 + 16*E_X3 + 25*E_X4)
+```
+
+## 
+
+Let's write a function to generate IID draws from the joint distribution:
+
+```{r}
+# Function to generate IID draws from (X,Y)
+gen_data <- function(n){
+  x <- runif(n, min = -5, max = 5)
+  z <- rnorm(n)
+  y <- 5*x + 2*x^2 + 3*x^3 + 4*x^4 + 5*x^5 + z
+  data.frame(x = x, y = y)
+}
+
+# Take a single draw 
+gen_data(n = 1)
+```
+
+## 
+
+Let's generate a sample of $n = 10,000$, and then use the CEF to predict $Y$: 
+
+```{r}
+set.seed(503)
+
+# Generate large sample 
+toy_df <- gen_data(n = 10000)
+
+# Compute predicted values via the CEF
+toy_df$y_pred <- 
+  with(toy_df, 5*x + 2*x^2 + 3*x^3 + 4*x^4 + 5*x^5)
+```
+
+## 
+
+Now let's make a plot, comparing the $X$ with $Y$, $\mathbb{E}[Y|X=x]$, and a simple linear regression 
+
+```{r, eval=FALSE}
+par(mfrow = c(1, 2))
+# Plot Y ~ X, 
+plot(y ~ x, toy_df, pch = 20)
+# Plot E[Y|X=x] ~ X, 
+plot(y_pred ~ x, toy_df, pch = 20, 
+     ylab = expression(hat(y)))
+# Overlay simple regression line
+abline(lm(y ~ x, toy_df), lwd = 3, col= "blue")
+```
+
+## 
+
+```{r, echo=FALSE}
+# Plot X as function of Y
+par(mfrow = c(1, 2))
+plot(y ~ x, toy_df, pch = 20)
+plot(y_pred ~ x, toy_df, pch = 20, ylab = expression(hat(y)))
+abline(lm(y ~ x, toy_df), lwd = 3, col= "blue")
+```
+
+## 
+
+Suppose $n=50$ and we use a linear approximation. Then $$\hat{\theta}_1 := \hat{f}(x) \approx \hat{\beta}_0 + \hat{\beta}_1x$$ and $$\hat{\theta}_2 := E[\hat{f'}(X)] \approx \hat{\beta}_1$$
+
+```{r} 
+linear_approx <- function(n = 50, X = 2){
+  samp_df <- gen_data(n) 
+  lm_fit <- lm(y ~ x, samp_df) 
+  est_theta1 <- sum(c(1,X)*lm_fit$coefficients) 
+  est_theta2 <- sum(c(0,1)*lm_fit$coefficients) 
+  c(est_theta1, est_theta2)
+}
+```
+
+
+##
+
+Let's also try a more flexible approach, e.g. a 3rd order polynomial $$\hat{\theta}_1 := \hat{f}(x) \approx \hat{\beta}_0 + \hat{\beta}_1x + \hat{\beta}_2x^2 + \hat{\beta}_3x^3$$ and $$\hat{\theta}_2 := E[\hat{f'}(X)] \approx \hat{\beta}_1 + 2\hat{\beta}_2\mathbb{E}[X]+3\hat{\beta}_3\mathbb{E}[X]^2$$
+
+Where $\mathbb{E}[X]=0$ and $\mathbb{E}[X^2]\approx 8.3$ since $X\sim\text{U}(-5,5)$
+
+```{r} 
+poly_approx3 <- function(n = 50, X = 2){
+  samp_df <- gen_data(n) 
+  lm_fit <- lm(y ~ x + I(x^2)+ I(x^3), samp_df)
+  coef_vec <- lm_fit$coefficients
+  est_theta1 <- sum(X^(0:3)*coef_vec)
+  est_theta2 <- sum(0:3*c(0, 1, 0, 8.3)*coef_vec) 
+  c(est_theta1, est_theta2)
+}
+```
+
+
+## 
+
+Now let's compare bias, variance, and MSE for each
+
+```{r}
+est_linear <- replicate(10000, linear_approx())
+est_poly3 <- replicate(10000, poly_approx3())
+
+# Bias:
+(bias_linear <- 
+    apply(est_linear, 1, mean) - c(theta1, theta2))
+
+(bias_poly3 <- 
+    apply(est_poly3, 1, mean) - c(theta1, theta2))
+```
+
+##
+```{r}
+# Variance:
+(var_linear <- apply(est_linear, 1, var))
+(var_poly3 <- apply(est_poly3, 1, var))
+
+# MSE: 
+(mse_linear <- bias_linear^2 + var_linear)
+(mse_poly3 <- bias_poly3^2 + var_poly3)
+```
+
+## 
+
+Polynomial approximation was better across all metrics here. What if we tried a 6th order polynomial? 
+
+```{r} 
+poly_approx6 <- function(n = 50, X = 2){
+  samp_df <- gen_data(n) 
+  lm_fit <- lm(y ~ poly(x, 6, raw = TRUE), samp_df)
+  coef_vec <- lm_fit$coefficients
+  est_theta1 <- sum(X^(0:6)*coef_vec)
+  est_theta2 <- sum(0:6*c(0, 1, 0, 8.3, 0, 125, 0)*coef_vec) 
+  c(est_theta1, est_theta2)
+}
+```
+
+##
+
+```{r}
+est_poly6 <- replicate(10000, poly_approx6())
+
+# Bias:
+bias_poly3
+
+(bias_poly6 <- 
+    apply(est_poly6, 1, mean) - c(theta1, theta2))
+```
+
+##
+```{r}
+# Variance:
+var_poly3
+(var_poly6 <- apply(est_poly6, 1, var))
+
+# MSE: 
+mse_poly3
+(mse_poly6 <- bias_poly6^2 + var_poly6)
+```
+
+## 
+
+Even better!! What if we tried a 12th order polynomial? 
+
+We can keep going, approximating the CEF to arbitrary precision 
+
+At some point, however, the approximation might get \textit{too flexible}
+
+Eventually, we will be \textbf{overfitting} 
+
+Read: Weierstrass Approximation Theorem and Chapter 4 of A\&M 
+
+
+
+
+
